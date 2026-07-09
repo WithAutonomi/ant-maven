@@ -1,0 +1,147 @@
+name: Publish Android AAR
+
+# Builds com.autonomi:ant-android from ant-sdk's Rust FFI crate (cargo-ndk ->
+# uniffi-bindgen kotlin -> Gradle assembleRelease) and publishes the AAR + POM
+# into THIS repo (ant-maven), the GitHub-Pages-served Maven repository, with a
+# correctly-merged maven-metadata.xml.
+#
+# WHY this lives in ant-maven (not ant-sdk or ant-android):
+#   - The artifacts are committed here and served from here over Pages, so the
+#     workflow commits to itself with the default GITHUB_TOKEN — no cross-repo
+#     PAT needed.
+#   - The Android analog of ant-swift's publish-ffi.yml (which hosts the iOS
+#     xcframework releases). BUILD LOGIC stays in ant-sdk
+#     (ffi/scripts/build-android.sh) — this workflow only checks it out + runs
+#     it, so there's a single source of truth.
+#
+# Manually triggered from the Actions tab (or `gh workflow run`). First run
+# should be validated end-to-end (untested NDK CI path).
+
+on:
+  workflow_dispatch:
+    inputs:
+      ant_sdk_ref:
+        description: "ant-sdk git ref (branch, tag, or SHA) to build the FFI from"
+        required: true
+        default: "main"
+      version:
+        description: "Version to publish, e.g. 0.0.8 (matches the AntFfi release)"
+        required: true
+
+permissions:
+  contents: write # commit the AAR + merged metadata to this repo
+
+env:
+  NDK_VERSION: "26.3.11579264"
+
+jobs:
+  publish:
+    name: Build + publish com.autonomi:ant-android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out ant-maven (self)
+        uses: actions/checkout@v4
+
+      - name: Check out ant-sdk @ ${{ inputs.ant_sdk_ref }}
+        uses: actions/checkout@v4
+        with:
+          repository: WithAutonomi/ant-sdk
+          ref: ${{ inputs.ant_sdk_ref }}
+          path: ant-sdk
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK + NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK ${{ env.NDK_VERSION }}
+        run: |
+          set -euo pipefail
+          sdkmanager "ndk;${NDK_VERSION}"
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9" # AGP 8.5.2 needs Gradle >= 8.7
+
+      - name: Install Rust + Android targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # ABIs shipped by build-android.sh: arm64-v8a, armeabi-v7a, x86_64.
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Install protoc
+        # ant-protocol (transitive via ant-core) compiles .proto at build time.
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "25.x"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache cargo + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ant-sdk/ffi/rust/target
+          key: android-${{ runner.os }}-${{ hashFiles('ant-sdk/ffi/rust/Cargo.lock') }}
+          restore-keys: android-${{ runner.os }}-
+
+      - name: Build AAR (cross-compile + bindings + assemble)
+        run: ant-sdk/ffi/scripts/build-android.sh
+
+      - name: Publish into local Maven layout
+        # Produces ant-sdk/ffi/android/build/maven-repo/com/autonomi/ant-android/<version>/
+        # plus a fresh maven-metadata.xml listing only <version>.
+        working-directory: ant-sdk/ffi/android
+        run: gradle publishReleasePublicationToPagesRepository -PantAndroidVersion=${{ inputs.version }} --console=plain
+
+      - name: Copy version + merge metadata into this repo
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          SRC="ant-sdk/ffi/android/build/maven-repo/com/autonomi/ant-android"
+          DST="com/autonomi/ant-android"
+          mkdir -p "$DST"
+          if [ -d "$DST/$VERSION" ]; then
+            echo "::error::$DST/$VERSION already exists — refusing to overwrite a published version"; exit 1
+          fi
+          cp -R "$SRC/$VERSION" "$DST/$VERSION"
+
+          # Merge maven-metadata.xml (keep all existing versions, add + point
+          # latest/release at the new one, regenerate sidecar checksums). Reuse
+          # gradle's fresh <lastUpdated> from the just-published SRC metadata so
+          # our file matches what gradle emitted. See scripts/merge-metadata.py.
+          LAST="$(grep -o '<lastUpdated>[0-9]*</lastUpdated>' "$SRC/maven-metadata.xml" | grep -o '[0-9]*')"
+          python3 scripts/merge-metadata.py "$DST/maven-metadata.xml" "$VERSION" "$LAST"
+
+      - name: Verify published AAR matches the build output
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          built="$(sha256sum ant-sdk/ffi/build/ant-android-release.aar | awk '{print $1}')"
+          in_repo="$(sha256sum com/autonomi/ant-android/$VERSION/ant-android-$VERSION.aar | awk '{print $1}')"
+          [ "$built" = "$in_repo" ] \
+            && echo "✅ AAR sha256 matches: $built" \
+            || { echo "❌ AAR mismatch: built=$built in_repo=$in_repo"; exit 1; }
+
+      - name: Commit + push
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add com/autonomi/ant-android
+          git commit -m "Publish com.autonomi:ant-android:${VERSION} (from ant-sdk @ ${{ inputs.ant_sdk_ref }})"
+          git push origin HEAD:main
