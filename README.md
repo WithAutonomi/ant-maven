@@ -17,7 +17,7 @@ dependencyResolutionManagement {
 
 `app/build.gradle.kts`:
 ```kotlin
-implementation("com.autonomi:ant-android:0.0.3")
+implementation("com.autonomi:ant-android:0.0.7")
 ```
 
 `ant-android` bundles the Autonomi FFI (`libant_ffi.so` per ABI) + generated
