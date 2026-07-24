@@ -1,0 +1,130 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.autonomi",
+    "module": "ant-android",
+    "version": "0.0.8-rc.1",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.9"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "net.java.dev.jna",
+          "module": "jna",
+          "version": {
+            "requires": "5.17.0"
+          },
+          "excludes": [
+            {
+              "group": "*",
+              "module": "*"
+            }
+          ],
+          "thirdPartyCompatibility": {
+            "artifactSelector": {
+              "name": "jna",
+              "type": "aar",
+              "extension": "aar"
+            }
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlinx",
+          "module": "kotlinx-coroutines-core",
+          "version": {
+            "requires": "1.8.1"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "1.9.25"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "ant-android-0.0.8-rc.1.aar",
+          "url": "ant-android-0.0.8-rc.1.aar",
+          "size": 38416478,
+          "sha512": "5002711c176fe021d3b45dfa797f6246e5c2b98c3ca50f4dc920219f1952e4b7f83c13bf95dfa48643cc30aa5926c4f02e131d2a0a2bf758028177aad18d87f3",
+          "sha256": "9075c3fafb9b31b2e0397d59c69404684dab9cb9bc367a50a87d6a62d819e452",
+          "sha1": "a8c5fca687436877da6822d7f611f6bc2e432d93",
+          "md5": "c36a29489b917944d853be179cf3aa9a"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "net.java.dev.jna",
+          "module": "jna",
+          "version": {
+            "requires": "5.17.0"
+          },
+          "excludes": [
+            {
+              "group": "*",
+              "module": "*"
+            }
+          ],
+          "thirdPartyCompatibility": {
+            "artifactSelector": {
+              "name": "jna",
+              "type": "aar",
+              "extension": "aar"
+            }
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlinx",
+          "module": "kotlinx-coroutines-core",
+          "version": {
+            "requires": "1.8.1"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "1.9.25"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "ant-android-0.0.8-rc.1.aar",
+          "url": "ant-android-0.0.8-rc.1.aar",
+          "size": 38416478,
+          "sha512": "5002711c176fe021d3b45dfa797f6246e5c2b98c3ca50f4dc920219f1952e4b7f83c13bf95dfa48643cc30aa5926c4f02e131d2a0a2bf758028177aad18d87f3",
+          "sha256": "9075c3fafb9b31b2e0397d59c69404684dab9cb9bc367a50a87d6a62d819e452",
+          "sha1": "a8c5fca687436877da6822d7f611f6bc2e432d93",
+          "md5": "c36a29489b917944d853be179cf3aa9a"
+        }
+      ]
+    }
+  ]
+}
